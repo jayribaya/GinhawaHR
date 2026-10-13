@@ -1,32 +1,158 @@
-import express from 'express';
-import helmet from 'helmet';
-import cors from 'cors';
-import cookieParser from 'cookie-parser';
-import rateLimit from 'express-rate-limit';
-import {randomUUID} from 'node:crypto';
-import path from 'node:path';
-import {fileURLToPath} from 'node:url';
-import {ZodError} from 'zod';
-import mongoose from 'mongoose';
-import swagger from 'swagger-ui-express';
-import type {Config} from './config/env.js';
-import {AppError} from './common/errors.js';
-import type {ContextRequest} from './common/http.js';
-import {AuthService} from './modules/auth/service.js';
-import {authRoutes,protectedAuthRoutes} from './modules/auth/routes.js';
-import {EmployeeService} from './modules/employees/service.js';
-import {employeeRoutes} from './modules/employees/routes.js';
-import {settingsRoutes} from './modules/settings/routes.js';
-import {AttendanceService} from './modules/attendance/service.js';
-import {attendanceRoutes} from './modules/attendance/routes.js';
-import {LeaveService} from './modules/leave/service.js';
-import {leaveRoutes} from './modules/leave/routes.js';
-import {PayrollService} from './modules/payroll/service.js';
-import {payrollRoutes} from './modules/payroll/routes.js';
-import {payslipRoutes} from './modules/payslips/routes.js';
-import {loanRoutes} from './modules/loans/routes.js';
-import {paymentRoutes} from './modules/payments/routes.js';
-import {reportingRoutes} from './modules/reports/routes.js';
-import {userRoutes} from './modules/users/routes.js';
-import {openapi} from './openapi.js';
-export function createApp(config:Config){const app=express(),auth=new AuthService(config);app.disable('x-powered-by');if(config.NODE_ENV==='production')app.set('trust proxy',1);app.use(helmet());app.use(cors({origin:config.APP_ORIGIN,credentials:true}));app.use(express.json({limit:'1mb'}));app.use(cookieParser());app.use((req,res,next)=>{(req as ContextRequest).correlationId=randomUUID();res.set('X-Request-Id',(req as ContextRequest).correlationId);if(req.path.startsWith('/api'))res.set('Cache-Control','no-store');next();});app.get('/api/v1/health',(_req,res)=>res.status(mongoose.connection.readyState===1?200:503).json({data:{status:mongoose.connection.readyState===1?'ok':'unavailable'}}));app.use('/api/v1',rateLimit({windowMs:60000,limit:300,standardHeaders:'draft-8',legacyHeaders:false}));app.use('/api/v1/auth',authRoutes(config,auth));app.use('/api/v1',async(req,_res,next)=>{try{(req as ContextRequest).actor=await auth.authenticate(req.get('authorization')?.replace(/^Bearer /,'')??'');next();}catch(error){next(error);}});app.use('/api/v1/auth',protectedAuthRoutes(auth));app.get('/api/v1/openapi.json',(_req,res)=>res.json(openapi));app.use('/api/v1/docs',swagger.serve,swagger.setup(openapi));app.use('/api/v1/employees',employeeRoutes(new EmployeeService(config.FIELD_ENCRYPTION_KEY)));app.use('/api/v1',settingsRoutes());app.use('/api/v1/attendance',attendanceRoutes(new AttendanceService()));app.use('/api/v1/leave',leaveRoutes(new LeaveService()));app.use('/api/v1/overtime',leaveRoutes(new LeaveService(),true));app.use('/api/v1/payroll',payrollRoutes(new PayrollService()));app.use('/api/v1/payslips',payslipRoutes());app.use('/api/v1/loans',loanRoutes());app.use('/api/v1/payments',paymentRoutes(config.FIELD_ENCRYPTION_KEY));app.use('/api/v1/users',userRoutes(auth));app.use('/api/v1',reportingRoutes());app.use('/api',(_req,_res,next)=>next(new AppError(404,'NOT_FOUND','Endpoint not found')));if(config.NODE_ENV==='production'){const clientDist=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../../client/dist');app.use(express.static(clientDist));app.get('/{*path}',(_req,res)=>res.sendFile(path.join(clientDist,'index.html')));}app.use((error:unknown,req:express.Request,res:express.Response,_next:express.NextFunction)=>{if(res.headersSent)return;let status=500,code='INTERNAL_ERROR',message='The request could not be completed';if(error instanceof AppError){status=error.status;code=error.code;message=error.message;}else if(error instanceof ZodError){status=422;code='VALIDATION_ERROR';message=error.issues.map(i=>`${i.path.join('.')}: ${i.message}`).join('; ');}else if(error instanceof mongoose.Error.CastError){status=422;code='INVALID_ID';message='Invalid identifier';}else if(error instanceof mongoose.Error.VersionError){status=409;code='CONFLICT';message='Record changed. Reload before continuing.';}else if(typeof error==='object'&&error!==null&&'code' in error&&error.code===11000){status=409;code='DUPLICATE';message='A matching record already exists';}res.status(status).json({error:{code,message,correlationId:(req as ContextRequest).correlationId}});});return app;}
+import express from "express";
+import helmet from "helmet";
+import cors from "cors";
+import cookieParser from "cookie-parser";
+import rateLimit from "express-rate-limit";
+import { randomUUID } from "node:crypto";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { ZodError } from "zod";
+import mongoose from "mongoose";
+import swagger from "swagger-ui-express";
+import type { Config } from "./config/env.js";
+import { AppError } from "./common/errors.js";
+import type { ContextRequest } from "./common/http.js";
+import { AuthService } from "./modules/auth/service.js";
+import { authRoutes, protectedAuthRoutes } from "./modules/auth/routes.js";
+import { EmployeeService } from "./modules/employees/service.js";
+import { employeeRoutes } from "./modules/employees/routes.js";
+import { settingsRoutes } from "./modules/settings/routes.js";
+import { AttendanceService } from "./modules/attendance/service.js";
+import { attendanceRoutes } from "./modules/attendance/routes.js";
+import { LeaveService } from "./modules/leave/service.js";
+import { leaveRoutes } from "./modules/leave/routes.js";
+import { PayrollService } from "./modules/payroll/service.js";
+import { payrollRoutes } from "./modules/payroll/routes.js";
+import { payslipRoutes } from "./modules/payslips/routes.js";
+import { loanRoutes } from "./modules/loans/routes.js";
+import { paymentRoutes } from "./modules/payments/routes.js";
+import { reportingRoutes } from "./modules/reports/routes.js";
+import { userRoutes } from "./modules/users/routes.js";
+import { openapi } from "./openapi.js";
+import { MongoPeriodLockPolicy } from "./infrastructure/period-locks.js";
+export function createApp(config: Config) {
+  const app = express(),
+    auth = new AuthService(config);
+  app.disable("x-powered-by");
+  if (config.NODE_ENV === "production") app.set("trust proxy", 1);
+  app.use(helmet());
+  app.use(cors({ origin: config.APP_ORIGIN, credentials: true }));
+  app.use(express.json({ limit: "1mb" }));
+  app.use(cookieParser());
+  app.use((req, res, next) => {
+    (req as ContextRequest).correlationId = randomUUID();
+    res.set("X-Request-Id", (req as ContextRequest).correlationId);
+    if (req.path.startsWith("/api")) res.set("Cache-Control", "no-store");
+    next();
+  });
+  app.get("/api/v1/health", (_req, res) =>
+    res.status(mongoose.connection.readyState === 1 ? 200 : 503).json({
+      data: {
+        status: mongoose.connection.readyState === 1 ? "ok" : "unavailable",
+      },
+    }),
+  );
+  app.use(
+    "/api/v1",
+    rateLimit({
+      windowMs: 60000,
+      limit: 300,
+      standardHeaders: "draft-8",
+      legacyHeaders: false,
+    }),
+  );
+  app.use("/api/v1/auth", authRoutes(config, auth));
+  app.use("/api/v1", async (req, _res, next) => {
+    try {
+      (req as ContextRequest).actor = await auth.authenticate(
+        req.get("authorization")?.replace(/^Bearer /, "") ?? "",
+      );
+      next();
+    } catch (error) {
+      next(error);
+    }
+  });
+  app.use("/api/v1/auth", protectedAuthRoutes(auth));
+  app.get("/api/v1/openapi.json", (_req, res) => res.json(openapi));
+  app.use("/api/v1/docs", swagger.serve, swagger.setup(openapi));
+  app.use(
+    "/api/v1/employees",
+    employeeRoutes(new EmployeeService(config.FIELD_ENCRYPTION_KEY)),
+  );
+  app.use("/api/v1", settingsRoutes());
+  const periodLocks = new MongoPeriodLockPolicy();
+  app.use(
+    "/api/v1/attendance",
+    attendanceRoutes(new AttendanceService(periodLocks)),
+  );
+  app.use("/api/v1/leave", leaveRoutes(new LeaveService(periodLocks)));
+  app.use("/api/v1/overtime", leaveRoutes(new LeaveService(periodLocks), true));
+  app.use("/api/v1/payroll", payrollRoutes(new PayrollService()));
+  app.use("/api/v1/payslips", payslipRoutes());
+  app.use("/api/v1/loans", loanRoutes());
+  app.use("/api/v1/payments", paymentRoutes(config.FIELD_ENCRYPTION_KEY));
+  app.use("/api/v1/users", userRoutes(auth));
+  app.use("/api/v1", reportingRoutes());
+  app.use("/api", (_req, _res, next) =>
+    next(new AppError(404, "NOT_FOUND", "Endpoint not found")),
+  );
+  if (config.NODE_ENV === "production") {
+    const clientDist = path.resolve(
+      path.dirname(fileURLToPath(import.meta.url)),
+      "../../client/dist",
+    );
+    app.use(express.static(clientDist));
+    app.get("/{*path}", (_req, res) =>
+      res.sendFile(path.join(clientDist, "index.html")),
+    );
+  }
+  app.use(
+    (
+      error: unknown,
+      req: express.Request,
+      res: express.Response,
+      _next: express.NextFunction,
+    ) => {
+      if (res.headersSent) return;
+      let status = 500,
+        code = "INTERNAL_ERROR",
+        message = "The request could not be completed";
+      if (error instanceof AppError) {
+        status = error.status;
+        code = error.code;
+        message = error.message;
+      } else if (error instanceof ZodError) {
+        status = 422;
+        code = "VALIDATION_ERROR";
+        message = error.issues
+          .map((i) => `${i.path.join(".")}: ${i.message}`)
+          .join("; ");
+      } else if (error instanceof mongoose.Error.CastError) {
+        status = 422;
+        code = "INVALID_ID";
+        message = "Invalid identifier";
+      } else if (error instanceof mongoose.Error.VersionError) {
+        status = 409;
+        code = "CONFLICT";
+        message = "Record changed. Reload before continuing.";
+      } else if (
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        error.code === 11000
+      ) {
+        status = 409;
+        code = "DUPLICATE";
+        message = "A matching record already exists";
+      }
+      res.status(status).json({
+        error: {
+          code,
+          message,
+          correlationId: (req as ContextRequest).correlationId,
+        },
+      });
+    },
+  );
+  return app;
+}

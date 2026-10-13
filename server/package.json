@@ -1,1 +1,45 @@
-{"name":"@ginhawahr/server","private":true,"version":"0.1.0","type":"module","scripts":{"dev":"tsx watch src/server.ts","build":"tsc","typecheck":"tsc --noEmit","test":"vitest run","seed":"tsx src/seed.ts","start":"node dist/server.js"},"dependencies":{"express":"^5.0.0","mongoose":"^8.0.0","zod":"^4.0.0","argon2":"^0.41.0","jsonwebtoken":"^9.0.0","cookie-parser":"^1.4.0","helmet":"^8.0.0","cors":"^2.8.0","express-rate-limit":"^8.0.0","dotenv":"^16.0.0","pino":"^9.0.0","pdfkit":"^0.16.0","swagger-ui-express":"^5.0.0","otplib":"^12.0.0"},"devDependencies":{"tsx":"^4.0.0","vitest":"^3.0.0","supertest":"^7.0.0","mongodb-memory-server":"^10.0.0","@types/node":"^22.0.0","@types/express":"^5.0.0","@types/cookie-parser":"^1.4.0","@types/cors":"^2.8.0","@types/jsonwebtoken":"^9.0.0","@types/pdfkit":"^0.13.0","@types/swagger-ui-express":"^4.1.0","@types/supertest":"^6.0.0"}}
+{
+  "name": "@ginhawahr/server",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "seed": "tsx src/seed.ts",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "argon2": "^0.41.0",
+    "cookie-parser": "^1.4.0",
+    "cors": "^2.8.0",
+    "csv-parse": "^7.0.3",
+    "dotenv": "^16.0.0",
+    "express": "^5.0.0",
+    "express-rate-limit": "^8.0.0",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.0",
+    "mongoose": "^8.0.0",
+    "otplib": "^12.0.0",
+    "pdfkit": "^0.16.0",
+    "pino": "^9.0.0",
+    "swagger-ui-express": "^5.0.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/cookie-parser": "^1.4.0",
+    "@types/cors": "^2.8.0",
+    "@types/express": "^5.0.0",
+    "@types/jsonwebtoken": "^9.0.0",
+    "@types/node": "^22.0.0",
+    "@types/pdfkit": "^0.13.0",
+    "@types/supertest": "^6.0.0",
+    "@types/swagger-ui-express": "^4.1.0",
+    "mongodb-memory-server": "^10.0.0",
+    "supertest": "^7.0.0",
+    "tsx": "^4.0.0",
+    "vitest": "^5.0.4"
+  }
+}

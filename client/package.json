@@ -1,1 +1,35 @@
-{"name":"@ginhawahr/client","private":true,"version":"0.1.0","type":"module","scripts":{"dev":"vite --host 127.0.0.1","build":"tsc --noEmit && vite build","typecheck":"tsc --noEmit"},"dependencies":{"react":"^19.0.0","react-dom":"^19.0.0","react-router-dom":"^7.0.0","@tanstack/react-query":"^5.0.0","react-hook-form":"^7.0.0","@hookform/resolvers":"^5.0.0","zod":"^4.0.0","zustand":"^5.0.0","recharts":"^3.0.0","lucide-react":"^0.468.0","clsx":"^2.0.0","tailwind-merge":"^3.0.0","@radix-ui/react-dialog":"^1.1.0","@radix-ui/react-slot":"^1.1.0"},"devDependencies":{"vite":"^7.0.0","@vitejs/plugin-react":"^5.0.0","@types/react":"^19.0.0","@types/react-dom":"^19.0.0","tailwindcss":"^4.0.0","@tailwindcss/vite":"^4.0.0"}}
+{
+  "name": "@ginhawahr/client",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-router-dom": "^7.0.0",
+    "@tanstack/react-query": "^5.0.0",
+    "react-hook-form": "^7.0.0",
+    "@hookform/resolvers": "^5.0.0",
+    "zod": "^4.0.0",
+    "zustand": "^5.0.0",
+    "recharts": "^3.0.0",
+    "lucide-react": "^0.468.0",
+    "clsx": "^2.0.0",
+    "tailwind-merge": "^3.0.0",
+    "@radix-ui/react-dialog": "^1.1.0",
+    "@radix-ui/react-slot": "^1.1.0"
+  },
+  "devDependencies": {
+    "vite": "^7.0.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "tailwindcss": "^4.0.0",
+    "@tailwindcss/vite": "^4.0.0"
+  }
+}

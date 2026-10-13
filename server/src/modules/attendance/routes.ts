@@ -1,11 +1,154 @@
-import {Router} from 'express';
-import {z} from 'zod';
-import {AttendanceRecord,AttendanceAdjustment,Employee} from '../../infrastructure/models.js';
-import {handler,ok} from '../../common/http.js';
-import {employeeFilter,requirePermission} from '../roles/policy.js';
-import {AttendanceService} from './service.js';
-import {id,date} from '../employees/validators.js';
-import {AppError} from '../../common/errors.js';
-import {findEmployee} from '../employees/repository.js';
-export async function scopedEmployeeIds(actor:import('../roles/policy.js').Principal){return (await Employee.find(employeeFilter(actor)).select('_id')).map(e=>e._id);}
-export function attendanceRoutes(service:AttendanceService){const router=Router();router.get('/',handler(async(req,res)=>{requirePermission(req.actor,'attendance.read');const from=req.query.from?date.parse(req.query.from):undefined,to=req.query.to?date.parse(req.query.to):undefined;ok(res,await AttendanceRecord.find({companyId:req.actor.companyId,employeeId:{$in:await scopedEmployeeIds(req.actor)},...(from||to?{day:{...(from?{$gte:from}:{}),...(to?{$lte:to}:{})}}:{})}).populate('employeeId','firstName lastName employeeNumber').sort({day:-1}).limit(100));}));router.post('/clock',handler(async(req,res)=>ok(res,await service.clock(req.actor,z.object({action:z.enum(['in','out'])}).parse(req.body).action,req.correlationId))));router.get('/adjustments',handler(async(req,res)=>{requirePermission(req.actor,'attendance.read');ok(res,await AttendanceAdjustment.find({companyId:req.actor.companyId,employeeId:{$in:await scopedEmployeeIds(req.actor)}}).sort({createdAt:-1}).limit(100));}));router.post('/adjustments',handler(async(req,res)=>{requirePermission(req.actor,'attendance.write');const data=z.object({attendanceId:id,clockIn:z.iso.datetime(),clockOut:z.iso.datetime(),reason:z.string().min(3).max(500)}).strict().parse(req.body);const record=await AttendanceRecord.findOne({_id:data.attendanceId,companyId:req.actor.companyId});if(!record)throw new AppError(404,'NOT_FOUND','Record not found');await findEmployee(req.actor,String(record.employeeId));if(record.lockedRunId)throw new AppError(409,'LOCKED','Attendance is locked');if(data.clockOut<=data.clockIn)throw new AppError(422,'INVALID_TIME','Clock out must follow clock in');ok(res.status(201),await AttendanceAdjustment.create({...data,employeeId:record.employeeId,departmentId:record.departmentId,companyId:req.actor.companyId,requestedBy:req.actor.userId}));}));router.post('/adjustments/:id/decision',handler(async(req,res)=>ok(res,await service.approve(req.actor,id.parse(req.params.id),z.object({decision:z.enum(['Approved','Rejected'])}).parse(req.body).decision,req.correlationId))));return router;}
+import { Router } from "express";
+import { z } from "zod";
+import {
+  AttendanceRecord,
+  AttendanceAdjustment,
+  Employee,
+} from "../../infrastructure/models.js";
+import { handler, ok } from "../../common/http.js";
+import { employeeFilter, requirePermission } from "../roles/policy.js";
+import { AttendanceService } from "./service.js";
+import { id, date } from "../employees/validators.js";
+import { AppError } from "../../common/errors.js";
+import { findEmployee } from "../employees/repository.js";
+export async function scopedEmployeeIds(
+  actor: import("../roles/policy.js").Principal,
+) {
+  return (await Employee.find(employeeFilter(actor)).select("_id")).map(
+    (e) => e._id,
+  );
+}
+export function attendanceRoutes(service: AttendanceService) {
+  const router = Router();
+  router.post(
+    "/import",
+    handler(async (req, res) => {
+      const input = z
+        .object({
+          csv: z.string().min(1).max(900000),
+          reason: z.string().min(3).max(500),
+        })
+        .strict()
+        .parse(req.body);
+      ok(res.status(201), {
+        imported: await service.importCsv(
+          req.actor,
+          input.csv,
+          input.reason,
+          req.correlationId,
+        ),
+      });
+    }),
+  );
+  router.get(
+    "/",
+    handler(async (req, res) => {
+      requirePermission(req.actor, "attendance.read");
+      const from = req.query.from ? date.parse(req.query.from) : undefined,
+        to = req.query.to ? date.parse(req.query.to) : undefined;
+      ok(
+        res,
+        await AttendanceRecord.find({
+          companyId: req.actor.companyId,
+          employeeId: { $in: await scopedEmployeeIds(req.actor) },
+          ...(from || to
+            ? {
+                day: {
+                  ...(from ? { $gte: from } : {}),
+                  ...(to ? { $lte: to } : {}),
+                },
+              }
+            : {}),
+        })
+          .populate("employeeId", "firstName lastName employeeNumber")
+          .sort({ day: -1 })
+          .limit(100),
+      );
+    }),
+  );
+  router.post(
+    "/clock",
+    handler(async (req, res) =>
+      ok(
+        res,
+        await service.clock(
+          req.actor,
+          z.object({ action: z.enum(["in", "out"]) }).parse(req.body).action,
+          req.correlationId,
+        ),
+      ),
+    ),
+  );
+  router.get(
+    "/adjustments",
+    handler(async (req, res) => {
+      requirePermission(req.actor, "attendance.read");
+      ok(
+        res,
+        await AttendanceAdjustment.find({
+          companyId: req.actor.companyId,
+          employeeId: { $in: await scopedEmployeeIds(req.actor) },
+        })
+          .sort({ createdAt: -1 })
+          .limit(100),
+      );
+    }),
+  );
+  router.post(
+    "/adjustments",
+    handler(async (req, res) => {
+      requirePermission(req.actor, "attendance.write");
+      const data = z
+        .object({
+          attendanceId: id,
+          clockIn: z.iso.datetime(),
+          clockOut: z.iso.datetime(),
+          reason: z.string().min(3).max(500),
+        })
+        .strict()
+        .parse(req.body);
+      const record = await AttendanceRecord.findOne({
+        _id: data.attendanceId,
+        companyId: req.actor.companyId,
+      });
+      if (!record) throw new AppError(404, "NOT_FOUND", "Record not found");
+      await findEmployee(req.actor, String(record.employeeId));
+      if (record.lockedRunId)
+        throw new AppError(409, "LOCKED", "Attendance is locked");
+      await service.assertWritable(req.actor.companyId, record.day, record.day);
+      if (data.clockOut <= data.clockIn)
+        throw new AppError(
+          422,
+          "INVALID_TIME",
+          "Clock out must follow clock in",
+        );
+      ok(
+        res.status(201),
+        await AttendanceAdjustment.create({
+          ...data,
+          employeeId: record.employeeId,
+          departmentId: record.departmentId,
+          companyId: req.actor.companyId,
+          requestedBy: req.actor.userId,
+        }),
+      );
+    }),
+  );
+  router.post(
+    "/adjustments/:id/decision",
+    handler(async (req, res) =>
+      ok(
+        res,
+        await service.approve(
+          req.actor,
+          id.parse(req.params.id),
+          z
+            .object({ decision: z.enum(["Approved", "Rejected"]) })
+            .parse(req.body).decision,
+          req.correlationId,
+        ),
+      ),
+    ),
+  );
+  return router;
+}

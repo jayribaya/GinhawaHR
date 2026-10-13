@@ -1,11 +1,194 @@
-import {useState} from 'react';
-import {Link,useNavigate,useSearchParams} from 'react-router-dom';
-import {useForm} from 'react-hook-form';
-import {zodResolver} from '@hookform/resolvers/zod';
-import {z} from 'zod';
-import {Leaf,ArrowRight,ShieldCheck} from 'lucide-react';
-import {post,api,useSession,type Actor} from '../services/api';
-import {Button} from '../components/ui/button';
-const schema=z.object({email:z.email(),password:z.string().min(1),totp:z.string().optional()});
-export function Login(){const navigate=useNavigate(),[error,setError]=useState('');const {register,handleSubmit,formState:{errors,isSubmitting}}=useForm<z.infer<typeof schema>>({resolver:zodResolver(schema)});const submit=async(values:z.infer<typeof schema>)=>{try{setError('');const login=await post<{accessToken:string}>('/auth/login',values);useSession.getState().set(login.data.accessToken);const me=await api<Actor>('/auth/me');useSession.getState().set(login.data.accessToken,me.data);navigate('/');}catch(e){setError((e as Error).message);}};return <div className="login-layout"><div className="login-brand"><div className="brand"><span className="brand-mark"><Leaf size={25}/></span>Ginhawa<span>HR</span></div><div className="login-intro"><div className="eyebrow">A LIGHTER WAY TO WORK</div><h1>People First.<br/>Payroll Made Easy.</h1><p>Give your people the care they deserve.<br/>Bring clarity to every workday.</p><div className="login-leaf" aria-hidden="true">g<span>✦</span></div></div><small>GinhawaHR · Thoughtfully built for Philippine teams</small></div><div className="login-form-wrap"><form className="login-form" onSubmit={handleSubmit(submit)}><div className="eyebrow">WELCOME TO GINHAWAHR</div><h2>Good to see you.</h2><p className="subtle">Sign in to your people workspace.</p><label>Work email<input type="email" autoComplete="username" placeholder="you@company.com" {...register('email')}/><small className="error">{errors.email?.message}</small></label><label>Password<input type="password" autoComplete="current-password" {...register('password')}/><small className="error">{errors.password?.message}</small></label><label>Authenticator code <span className="subtle">(if enabled)</span><input inputMode="numeric" autoComplete="one-time-code" maxLength={6} {...register('totp')}/></label><Link to="/recovery" className="table-link recovery-link">Forgot password?</Link>{error&&<p className="error" role="alert">{error}</p>}<Button type="submit" disabled={isSubmitting}>{isSubmitting?'Signing in…':'Sign in'}<ArrowRight size={17}/></Button><div className="login-security"><ShieldCheck size={16}/>Secure access. Your people’s data, protected.</div></form></div></div>;}
-export function Recovery(){const [params]=useSearchParams(),[token,setToken]=useState(params.get('token')??''),[email,setEmail]=useState(''),[password,setPassword]=useState(''),[message,setMessage]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false),[reset,setReset]=useState(Boolean(params.get('token')));return <div className="recovery-page"><form className="card padded" onSubmit={async e=>{e.preventDefault();setBusy(true);setError('');try{const result=await post<{message:string}>(reset?'/auth/reset-password':'/auth/forgot-password',reset?{token,password}:{email});setMessage(result.data.message);}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}><div className="brand">Ginhawa<span>HR</span></div><h1>{reset?'Set your password':'Password recovery'}</h1><p>Use a secure invitation or reset token from your administrator.</p>{reset?<><label>Token<input required value={token} onChange={e=>setToken(e.target.value)}/></label><label>New password<input type="password" minLength={12} required value={password} onChange={e=>setPassword(e.target.value)}/></label></>:<label>Work email<input type="email" required value={email} onChange={e=>setEmail(e.target.value)}/></label>}{error&&<p className="error">{error}</p>}{message&&<p role="status">{message}</p>}<Button type="submit" disabled={busy}>{busy?'Submitting…':reset?'Set password':'Request reset'}</Button><Button type="button" variant="ghost" onClick={()=>setReset(!reset)}>{reset?'Request a reset':'I have a token'}</Button><Link to="/login">Back to sign in</Link></form></div>;}
+import { useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Leaf, ArrowRight, ShieldCheck } from "lucide-react";
+import { post, api, useSession, type Actor } from "../services/api";
+import { Button } from "../components/ui/button";
+const schema = z.object({
+  email: z.email(),
+  password: z.string().min(1),
+  totp: z.string().optional(),
+});
+export function Login() {
+  const navigate = useNavigate(),
+    [error, setError] = useState("");
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<z.infer<typeof schema>>({ resolver: zodResolver(schema) });
+  const submit = async (values: z.infer<typeof schema>) => {
+    try {
+      setError("");
+      const login = await post<{ accessToken: string }>("/auth/login", values);
+      useSession.getState().set(login.data.accessToken, null);
+      const me = await api<Actor>("/auth/me");
+      useSession.getState().set(login.data.accessToken, me.data);
+      navigate("/");
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+  return (
+    <div className="login-layout">
+      <div className="login-brand">
+        <div className="brand">
+          <span className="brand-mark">
+            <Leaf size={25} />
+          </span>
+          Ginhawa<span>HR</span>
+        </div>
+        <div className="login-intro">
+          <div className="eyebrow">A LIGHTER WAY TO WORK</div>
+          <h1>
+            People First.
+            <br />
+            Payroll Made Easy.
+          </h1>
+          <p>
+            Give your people the care they deserve.
+            <br />
+            Bring clarity to every workday.
+          </p>
+          <div className="login-leaf" aria-hidden="true">
+            g<span>✦</span>
+          </div>
+        </div>
+        <small>GinhawaHR · Thoughtfully built for Philippine teams</small>
+      </div>
+      <div className="login-form-wrap">
+        <form className="login-form" onSubmit={handleSubmit(submit)}>
+          <div className="eyebrow">WELCOME TO GINHAWAHR</div>
+          <h2>Good to see you.</h2>
+          <p className="subtle">Sign in to your people workspace.</p>
+          <label>
+            Work email
+            <input
+              type="email"
+              autoComplete="username"
+              placeholder="you@company.com"
+              {...register("email")}
+            />
+            <small className="error">{errors.email?.message}</small>
+          </label>
+          <label>
+            Password
+            <input
+              type="password"
+              autoComplete="current-password"
+              {...register("password")}
+            />
+            <small className="error">{errors.password?.message}</small>
+          </label>
+          <label>
+            Authenticator code <span className="subtle">(if enabled)</span>
+            <input
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              {...register("totp")}
+            />
+          </label>
+          <Link to="/recovery" className="table-link recovery-link">
+            Forgot password?
+          </Link>
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Signing in…" : "Sign in"}
+            <ArrowRight size={17} />
+          </Button>
+          <div className="login-security">
+            <ShieldCheck size={16} />
+            Secure access. Your people’s data, protected.
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+export function Recovery() {
+  const [params] = useSearchParams(),
+    [token, setToken] = useState(params.get("token") ?? ""),
+    [email, setEmail] = useState(""),
+    [password, setPassword] = useState(""),
+    [message, setMessage] = useState(""),
+    [error, setError] = useState(""),
+    [busy, setBusy] = useState(false),
+    [reset, setReset] = useState(Boolean(params.get("token")));
+  return (
+    <div className="recovery-page">
+      <form
+        className="card padded"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          setBusy(true);
+          setError("");
+          try {
+            const result = await post<{ message: string }>(
+              reset ? "/auth/reset-password" : "/auth/forgot-password",
+              reset ? { token, password } : { email },
+            );
+            setMessage(result.data.message);
+          } catch (e) {
+            setError((e as Error).message);
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <div className="brand">
+          Ginhawa<span>HR</span>
+        </div>
+        <h1>{reset ? "Set your password" : "Password recovery"}</h1>
+        <p>Use a secure invitation or reset token from your administrator.</p>
+        {reset ? (
+          <>
+            <label>
+              Token
+              <input
+                required
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+              />
+            </label>
+            <label>
+              New password
+              <input
+                type="password"
+                minLength={12}
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </label>
+          </>
+        ) : (
+          <label>
+            Work email
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </label>
+        )}
+        {error && <p className="error">{error}</p>}
+        {message && <p role="status">{message}</p>}
+        <Button type="submit" disabled={busy}>
+          {busy ? "Submitting…" : reset ? "Set password" : "Request reset"}
+        </Button>
+        <Button type="button" variant="ghost" onClick={() => setReset(!reset)}>
+          {reset ? "Request a reset" : "I have a token"}
+        </Button>
+        <Link to="/login">Back to sign in</Link>
+      </form>
+    </div>
+  );
+}

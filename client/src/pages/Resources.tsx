@@ -1,11 +1,248 @@
-import {useState} from 'react';
-import {Link,useParams} from 'react-router-dom';
-import {useQuery,useMutation,useQueryClient} from '@tanstack/react-query';
-import {Plus,Search,ArrowUpRight} from 'lucide-react';
-import {api,post,useSession,text,money,type Row} from '../services/api';
-import {resources} from '../features/resources/config';
-import {Button} from '../components/ui/button';
-import {Modal} from '../components/ui/dialog';
-import {ResourceForm} from '../components/ResourceForm';
-export function State({loading,error,empty}:{loading?:boolean;error?:Error|null;empty?:boolean}){if(loading)return <div className="skeleton" aria-label="Loading records"/>;if(error)return <div className="state error" role="alert"><strong>We couldn’t load this information.</strong><p>{error.message}</p></div>;if(empty)return <div className="state"><div className="empty-icon">◇</div><strong>No records yet</strong><p>Records will appear here when they are added.</p></div>;return null;}
-export function ResourcePage({resource:prop}:{resource?:string}){const {resource}=useParams();const config=resources[prop??resource??''];const actor=useSession(s=>s.actor);const [q,setQ]=useState(''),[page,setPage]=useState(1),[open,setOpen]=useState(false),[actionError,setActionError]=useState('');const cache=useQueryClient();const allowed=Boolean(config&&actor?.permissions.includes(config.permission));const query=useQuery({queryKey:[config?.endpoint,q,page],queryFn:()=>api<Row[]>(`${config.endpoint}?q=${encodeURIComponent(q)}&page=${page}`),enabled:allowed});const create=useMutation({mutationFn:(data:Record<string,unknown>)=>post(config.endpoint,data),onSuccess:()=>{setOpen(false);void cache.invalidateQueries();}});const canWrite=config?.write&&actor?.permissions.includes(config.write);if(!config)return <State error={new Error('Page not found')}/>;if(!allowed)return <State error={new Error('You do not have access to this module.')}/>;const rows=query.data?.data??[];const filtered=config.endpoint==='/employees'?rows:rows.filter(r=>Object.values(r).some(v=>text(v).toLowerCase().includes(q.toLowerCase())));const decision=async(row:Row,value:string)=>{setActionError('');try{await post(`${config.endpoint}/${row._id}/decision`,{decision:value});await cache.invalidateQueries();}catch(e){setActionError((e as Error).message);}};return <><div className="page-heading"><div><div className="eyebrow">PEOPLE & OPERATIONS</div><h1>{config.title}</h1><p>{config.description}</p></div>{canWrite&&config.fields&&<Button onClick={()=>{create.reset();setOpen(true);}}><Plus size={17}/>Add {prop==='employees'?'employee':'record'}</Button>}</div><div className="card"><div className="table-toolbar"><div className="search-field"><Search size={17}/><input placeholder={`Search ${config.title.toLowerCase()}…`} aria-label="Search records" value={q} onChange={e=>{setQ(e.target.value);setPage(1);}}/></div><span className="subtle">{query.data?.meta?.total??filtered.length} records</span></div><State loading={query.isPending} error={query.error} empty={!query.isPending&&!query.error&&!filtered.length}/>{filtered.length>0&&<div className="table-scroll"><table><thead><tr>{config.columns.map(c=><th key={c.key}>{c.label}</th>)}{['employees','leave','overtime'].includes(prop??resource??'')&&<th>Actions</th>}</tr></thead><tbody>{filtered.map(row=><tr key={row._id}>{config.columns.map(c=><td key={c.key}>{c.money?money(row[c.key]):c.key==='status'?<span className={`badge ${String(row[c.key]).toLowerCase().replaceAll(' ','-')}`}>{text(row[c.key])}</span>:text(row[c.key])}</td>)}{(prop??resource)==='employees'&&<td><Link className="table-link" to={'/employees/'+row._id}>View <ArrowUpRight size={14}/></Link></td>}{['leave','overtime'].includes(prop??resource??'')&&<td>{row.status==='Pending'&&actor?.permissions.includes((prop??resource)+'.approve')&&<div className="inline-actions"><Button variant="outline" onClick={()=>void decision(row,'Approved')}>Approve</Button><Button variant="ghost" onClick={()=>void decision(row,'Rejected')}>Reject</Button></div>}</td>}</tr>)}</tbody></table></div>}{actionError&&<p role="alert" className="error padded">{actionError}</p>}<div className="table-footer"><span>Showing {filtered.length} records</span>{query.data?.meta&&<div className="inline-actions"><Button variant="ghost" disabled={page===1} onClick={()=>setPage(p=>p-1)}>Previous</Button><span>Page {page}</span><Button variant="ghost" disabled={page*20>=query.data.meta.total} onClick={()=>setPage(p=>p+1)}>Next</Button></div>}</div></div><Modal open={open} onOpenChange={setOpen} title={`Add ${config.title.toLowerCase()}`}>{config.fields&&<ResourceForm fields={config.fields} onSubmit={d=>create.mutate(d)} busy={create.isPending} error={create.error?.message}/>}</Modal></>;}
+import { useState, useEffect } from "react";
+import { Link, useParams, useSearchParams } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Plus, Search, ArrowUpRight } from "lucide-react";
+import { api, post, useSession, text, money, type Row } from "../services/api";
+import { resources } from "../features/resources/config";
+import { Button } from "../components/ui/button";
+import { Modal } from "../components/ui/dialog";
+import { ResourceForm } from "../components/ResourceForm";
+export function State({
+  loading,
+  error,
+  empty,
+}: {
+  loading?: boolean;
+  error?: Error | null;
+  empty?: boolean;
+}) {
+  if (loading) return <div className="skeleton" aria-label="Loading records" />;
+  if (error)
+    return (
+      <div className="state error" role="alert">
+        <strong>We couldn’t load this information.</strong>
+        <p>{error.message}</p>
+      </div>
+    );
+  if (empty)
+    return (
+      <div className="state">
+        <div className="empty-icon">◇</div>
+        <strong>No records yet</strong>
+        <p>Records will appear here when they are added.</p>
+      </div>
+    );
+  return null;
+}
+export function ResourcePage({ resource: prop }: { resource?: string }) {
+  const { resource } = useParams();
+  const config = resources[prop ?? resource ?? ""];
+  const actor = useSession((s) => s.actor);
+  const [searchParams] = useSearchParams();
+  const [q, setQ] = useState(searchParams.get("q") ?? ""),
+    [page, setPage] = useState(1),
+    [open, setOpen] = useState(false),
+    [actionError, setActionError] = useState("");
+  useEffect(() => {
+    setQ(searchParams.get("q") ?? "");
+    setPage(1);
+  }, [searchParams, config?.endpoint]);
+  const cache = useQueryClient();
+  const allowed = Boolean(
+    config && actor?.permissions.includes(config.permission),
+  );
+  const query = useQuery({
+    queryKey: [config?.endpoint, q, page],
+    queryFn: () =>
+      api<Row[]>(`${config.endpoint}?q=${encodeURIComponent(q)}&page=${page}`),
+    enabled: allowed,
+  });
+  const create = useMutation({
+    mutationFn: (data: Record<string, unknown>) => post(config.endpoint, data),
+    onSuccess: () => {
+      setOpen(false);
+      void cache.invalidateQueries();
+    },
+  });
+  const canWrite = config?.write && actor?.permissions.includes(config.write);
+  if (!config) return <State error={new Error("Page not found")} />;
+  if (!allowed)
+    return (
+      <State error={new Error("You do not have access to this module.")} />
+    );
+  const rows = query.data?.data ?? [];
+  const filtered =
+    config.endpoint === "/employees"
+      ? rows
+      : rows.filter((r) =>
+          Object.values(r).some((v) =>
+            text(v).toLowerCase().includes(q.toLowerCase()),
+          ),
+        );
+  const decision = async (row: Row, value: string) => {
+    setActionError("");
+    try {
+      await post(`${config.endpoint}/${row._id}/decision`, { decision: value });
+      await cache.invalidateQueries();
+    } catch (e) {
+      setActionError((e as Error).message);
+    }
+  };
+  return (
+    <>
+      <div className="page-heading">
+        <div>
+          <div className="eyebrow">PEOPLE & OPERATIONS</div>
+          <h1>{config.title}</h1>
+          <p>{config.description}</p>
+        </div>
+        {canWrite && config.fields && (
+          <Button
+            onClick={() => {
+              create.reset();
+              setOpen(true);
+            }}
+          >
+            <Plus size={17} />
+            Add {prop === "employees" ? "employee" : "record"}
+          </Button>
+        )}
+      </div>
+      <div className="card">
+        <div className="table-toolbar">
+          <div className="search-field">
+            <Search size={17} />
+            <input
+              placeholder={`Search ${config.title.toLowerCase()}…`}
+              aria-label="Search records"
+              value={q}
+              onChange={(e) => {
+                setQ(e.target.value);
+                setPage(1);
+              }}
+            />
+          </div>
+          <span className="subtle">
+            {query.data?.meta?.total ?? filtered.length} records
+          </span>
+        </div>
+        <State
+          loading={query.isPending}
+          error={query.error}
+          empty={!query.isPending && !query.error && !filtered.length}
+        />
+        {filtered.length > 0 && (
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  {config.columns.map((c) => (
+                    <th key={c.key}>{c.label}</th>
+                  ))}
+                  {["employees", "leave", "overtime"].includes(
+                    prop ?? resource ?? "",
+                  ) && <th>Actions</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((row) => (
+                  <tr key={row._id}>
+                    {config.columns.map((c) => (
+                      <td key={c.key}>
+                        {c.money ? (
+                          money(row[c.key])
+                        ) : c.key === "status" ? (
+                          <span
+                            className={`badge ${String(row[c.key]).toLowerCase().replaceAll(" ", "-")}`}
+                          >
+                            {text(row[c.key])}
+                          </span>
+                        ) : (
+                          text(row[c.key])
+                        )}
+                      </td>
+                    ))}
+                    {(prop ?? resource) === "employees" && (
+                      <td>
+                        <Link
+                          className="table-link"
+                          to={"/employees/" + row._id}
+                        >
+                          View <ArrowUpRight size={14} />
+                        </Link>
+                      </td>
+                    )}
+                    {["leave", "overtime"].includes(prop ?? resource ?? "") && (
+                      <td>
+                        {row.status === "Pending" &&
+                          actor?.permissions.includes(
+                            (prop ?? resource) + ".approve",
+                          ) && (
+                            <div className="inline-actions">
+                              <Button
+                                variant="outline"
+                                onClick={() => void decision(row, "Approved")}
+                              >
+                                Approve
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                onClick={() => void decision(row, "Rejected")}
+                              >
+                                Reject
+                              </Button>
+                            </div>
+                          )}
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {actionError && (
+          <p role="alert" className="error padded">
+            {actionError}
+          </p>
+        )}
+        <div className="table-footer">
+          <span>Showing {filtered.length} records</span>
+          {query.data?.meta && (
+            <div className="inline-actions">
+              <Button
+                variant="ghost"
+                disabled={page === 1}
+                onClick={() => setPage((p) => p - 1)}
+              >
+                Previous
+              </Button>
+              <span>Page {page}</span>
+              <Button
+                variant="ghost"
+                disabled={page * 20 >= query.data.meta.total}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Next
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+      <Modal
+        open={open}
+        onOpenChange={setOpen}
+        title={`Add ${config.title.toLowerCase()}`}
+      >
+        {config.fields && (
+          <ResourceForm
+            fields={config.fields}
+            onSubmit={(d) => create.mutate(d)}
+            busy={create.isPending}
+            error={create.error?.message}
+          />
+        )}
+      </Modal>
+    </>
+  );
+}

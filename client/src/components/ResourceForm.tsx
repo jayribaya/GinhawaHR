@@ -1,9 +1,129 @@
-import {useQuery} from '@tanstack/react-query';
-import {useForm} from 'react-hook-form';
-import {zodResolver} from '@hookform/resolvers/zod';
-import {z} from 'zod';
-import {api,text,type Row} from '../services/api';
-import type {Field} from '../features/resources/config';
-import {Button} from './ui/button';
-function Lookup({field,register}:{field:Field;register:ReturnType<typeof useForm<Record<string,unknown>>>['register']}){const query=useQuery({queryKey:[field.resource],queryFn:()=>api<Row[]>(field.resource!+'?limit=100')});return <select {...register(field.name)}><option value="">Select…</option>{query.data?.data.map(row=><option key={row._id} value={row._id}>{text(row.name??`${row.firstName} ${row.lastName}`)}</option>)}</select>;}
-export function ResourceForm({fields,onSubmit,busy,error,initial={}}:{fields:Field[];onSubmit:(data:Record<string,unknown>)=>void;busy:boolean;error?:string;initial?:Record<string,unknown>}){const defaults=Object.fromEntries(fields.map(f=>[f.name,f.type==='json'?JSON.stringify(initial[f.name]??f.default??{},null,2):initial[f.name]??f.default??(f.type==='checkbox'?false:'')]));const schema=z.object(Object.fromEntries(fields.map(f=>[f.name,f.type==='checkbox'?z.boolean():f.required?z.union([z.string().min(1,'Required'),z.number()]):z.unknown()])));const {register,handleSubmit,formState:{errors},setError}=useForm<Record<string,unknown>>({defaultValues:defaults,resolver:zodResolver(schema)});const submit=(values:Record<string,unknown>)=>{try{const data:Record<string,unknown>={};for(const field of fields){let value=values[field.name];if(value===''&&!field.required)continue;if(field.type==='json')value=JSON.parse(String(value));if(field.type==='number')value=Number(value);data[field.name]=value;}onSubmit(data);}catch{setError('root',{message:'Enter valid JSON in each JSON field.'});}};return <form onSubmit={handleSubmit(submit)} className="form-grid">{fields.map(f=><label key={f.name} className={f.type==='json'?'wide':''}><span>{f.label}{f.required?' *':''}</span>{f.resource?<Lookup field={f} register={register}/>:f.options?<select {...register(f.name)}>{f.options.map(o=><option key={o}>{o}</option>)}</select>:f.type==='json'||f.type==='textarea'?<textarea rows={4} {...register(f.name)}/>:<input type={f.type==='money'?'text':f.type??'text'} step={f.type==='number'?'0.5':undefined} {...register(f.name)}/>}<small className="error">{errors[f.name]?.message as string}</small></label>)}{(error||errors.root)&&<p className="error wide" role="alert">{error??errors.root?.message}</p>}<div className="wide form-actions"><Button type="submit" disabled={busy}>{busy?'Saving…':'Save record'}</Button></div></form>;}
+import { useQuery } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { api, text, type Row } from "../services/api";
+import type { Field } from "../features/resources/config";
+import { Button } from "./ui/button";
+function Lookup({
+  field,
+  register,
+}: {
+  field: Field;
+  register: ReturnType<typeof useForm<Record<string, unknown>>>["register"];
+}) {
+  const query = useQuery({
+    queryKey: [field.resource],
+    queryFn: () => api<Row[]>(field.resource! + "?limit=100"),
+  });
+  return (
+    <select {...register(field.name)}>
+      <option value="">Select…</option>
+      {query.data?.data.map((row) => (
+        <option key={row._id} value={row._id}>
+          {text(row.name ?? `${row.firstName} ${row.lastName}`)}
+        </option>
+      ))}
+    </select>
+  );
+}
+export function ResourceForm({
+  fields,
+  onSubmit,
+  busy,
+  error,
+  initial = {},
+}: {
+  fields: Field[];
+  onSubmit: (data: Record<string, unknown>) => void;
+  busy: boolean;
+  error?: string;
+  initial?: Record<string, unknown>;
+}) {
+  const defaults = Object.fromEntries(
+    fields.map((f) => [
+      f.name,
+      f.type === "json"
+        ? JSON.stringify(initial[f.name] ?? f.default ?? {}, null, 2)
+        : (initial[f.name] ??
+          f.default ??
+          (f.type === "checkbox" ? false : "")),
+    ]),
+  );
+  const schema = z.object(
+    Object.fromEntries(
+      fields.map((f) => [
+        f.name,
+        f.type === "checkbox"
+          ? z.boolean()
+          : f.required
+            ? z.union([z.string().min(1, "Required"), z.number()])
+            : z.unknown(),
+      ]),
+    ),
+  );
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    setError,
+  } = useForm<Record<string, unknown>>({
+    defaultValues: defaults,
+    resolver: zodResolver(schema),
+  });
+  const submit = (values: Record<string, unknown>) => {
+    try {
+      const data: Record<string, unknown> = {};
+      for (const field of fields) {
+        let value = values[field.name];
+        if (value === "" && !field.required) continue;
+        if (field.type === "json") value = JSON.parse(String(value));
+        if (field.type === "number") value = Number(value);
+        data[field.name] = value;
+      }
+      onSubmit(data);
+    } catch {
+      setError("root", { message: "Enter valid JSON in each JSON field." });
+    }
+  };
+  return (
+    <form onSubmit={handleSubmit(submit)} className="form-grid">
+      {fields.map((f) => (
+        <label key={f.name} className={f.type === "json" ? "wide" : ""}>
+          <span>
+            {f.label}
+            {f.required ? " *" : ""}
+          </span>
+          {f.resource ? (
+            <Lookup field={f} register={register} />
+          ) : f.options ? (
+            <select {...register(f.name)}>
+              {f.options.map((o) => (
+                <option key={o}>{o}</option>
+              ))}
+            </select>
+          ) : f.type === "json" || f.type === "textarea" ? (
+            <textarea rows={4} {...register(f.name)} />
+          ) : (
+            <input
+              type={f.type === "money" ? "text" : (f.type ?? "text")}
+              step={f.type === "number" ? "0.5" : undefined}
+              {...register(f.name)}
+            />
+          )}
+          <small className="error">{errors[f.name]?.message as string}</small>
+        </label>
+      ))}
+      {(error || errors.root) && (
+        <p className="error wide" role="alert">
+          {error ?? errors.root?.message}
+        </p>
+      )}
+      <div className="wide form-actions">
+        <Button type="submit" disabled={busy}>
+          {busy ? "Saving…" : "Save record"}
+        </Button>
+      </div>
+    </form>
+  );
+}
